@@ -15,7 +15,7 @@ public class EmailGenerator {
     
     public String generateHtmlContent(MailContent mailContent) {
         StringBuilder html = new StringBuilder();
-        
+
         html.append("<html>");
         html.append("<head>");
         html.append("<style>");
@@ -41,70 +41,100 @@ public class EmailGenerator {
         html.append("</style>");
         html.append("</head>");
         html.append("<body>");
-        
+
         // 头部
         html.append("<div class=\"header\">");
         html.append("<h1>人月框架协议进度提醒</h1>");
         html.append("<p>生成时间: ").append(new Date()).append("</p>");
         html.append("</div>");
-        
+
         // 提醒部分
-        addAlertSection(html, "📋 以下同事请及时整理人月框架协议资料：", 
-                       mailContent.getNeedDataAlert());
-        addAlertSection(html, "📝 以下同事请及时完成事财权审批：", 
-                       mailContent.getNeedApprovalAlert());
-        addAlertSection(html, "🛒 以下同事请及时完成合同采购：", 
-                       mailContent.getNeedPurchaseAlert());
-        addAlertSection(html, "🖋️ 以下同事请及时完成合同用印：", 
-                       mailContent.getNeedSealAlert());
-        
-        // 表格部分
-        html.append("<h2>📊 运营业务开发科项目清单</h2>");
-        html.append("<table>");
-        html.append("<tr>");
-        html.append("<th width=\"5%\">序号</th>");
-        html.append("<th width=\"25%\">系统名称</th>");
-        html.append("<th width=\"10%\">责任经办</th>");
-        html.append("<th width=\"15%\">当前进度</th>");
-        html.append("<th width=\"15%\">上期协议到期</th>");
-        html.append("<th width=\"15%\">计划立项日期</th>");
-        html.append("<th width=\"15%\">紧急程度</th>");
-        html.append("</tr>");
-        
-        for (FrameworkAgreement agreement : mailContent.getTableData()) {
-            String rowClass = "";
-            if ("已完成".equals(agreement.getCurrentProgress())) {
-                rowClass = "completed";
-            } else if (agreement.getAlertLevel() <= 2) {
-                rowClass = "urgent";
-            }
-            
-            html.append("<tr class=\"").append(rowClass).append("\">");
-            html.append("<td>").append(agreement.getId() != null ? agreement.getId() : "").append("</td>");
-            html.append("<td>").append(agreement.getSystemName() != null ? agreement.getSystemName() : "").append("</td>");
-            html.append("<td>").append(agreement.getResponsiblePerson() != null ? 
-                                       agreement.getResponsiblePerson() : "").append("</td>");
-            html.append("<td>").append(agreement.getCurrentProgress() != null ? 
-                                       agreement.getCurrentProgress() : "").append("</td>");
-            html.append("<td>").append(formatDate(agreement.getPreviousAgreementExpiry())).append("</td>");
-            html.append("<td>").append(formatDate(agreement.getPlannedApprovalDate())).append("</td>");
-            html.append("<td class=\"level-").append(agreement.getAlertLevel() != null ? 
-                     agreement.getAlertLevel() : 5).append("\">");
-            html.append(getUrgencyText(agreement.getAlertLevel())).append("</td>");
-            html.append("</tr>");
+        List<String> needDataAlert = mailContent.getNeedDataAlert();
+        List<String> needApprovalAlert = mailContent.getNeedApprovalAlert();
+        List<String> needPurchaseAlert = mailContent.getNeedPurchaseAlert();
+        List<String> needSealAlert = mailContent.getNeedSealAlert();
+
+        if (!needDataAlert.isEmpty() || !needApprovalAlert.isEmpty() ||
+                !needPurchaseAlert.isEmpty() || !needSealAlert.isEmpty()) {
+            html.append("<h2>📢 待办事项提醒</h2>");
+
+            addAlertSection(html, "📋 以下同事请及时整理人月框架协议资料：", needDataAlert);
+            addAlertSection(html, "📝 以下同事请及时完成事财权审批：", needApprovalAlert);
+            addAlertSection(html, "🛒 以下同事请及时完成合同采购：", needPurchaseAlert);
+            addAlertSection(html, "🖋️ 以下同事请及时完成合同用印：", needSealAlert);
+        } else {
+            html.append("<div class=\"alert-section\">");
+            html.append("<div class=\"alert-title\">✅ 所有事项正常</div>");
+            html.append("<div class=\"alert-content\">目前没有需要紧急处理的事项。</div>");
+            html.append("</div>");
         }
-        
-        html.append("</table>");
-        
-        // 页脚
-        html.append("<div class=\"footer\">");
-        html.append("<p>注：紧急程度说明 - 非常紧急(7天内) | 紧急(7-14天) | 中等(14-30天) | 一般(30-90天) | 较低(90天以上)</p>");
-        html.append("<p>绿色行表示已完成项目，红色背景表示紧急项目</p>");
-        html.append("</div>");
-        
+
+        // 表格部分
+        List<FrameworkAgreement> tableData = mailContent.getTableData();
+        if (tableData != null && !tableData.isEmpty()) {
+            html.append("<h2>📊 运营业务开发科项目清单（共").append(tableData.size()).append("项）</h2>");
+            html.append("<table>");
+            html.append("<tr>");
+            html.append("<th width=\"5%\">序号</th>");
+            html.append("<th width=\"25%\">系统名称</th>");
+            html.append("<th width=\"10%\">责任经办</th>");
+            html.append("<th width=\"15%\">当前进度</th>");
+            html.append("<th width=\"15%\">上期协议到期</th>");
+            html.append("<th width=\"15%\">计划立项日期</th>");
+            html.append("<th width=\"15%\">紧急程度</th>");
+            html.append("</tr>");
+
+            for (FrameworkAgreement agreement : tableData) {
+                String rowClass = "";
+                String currentProgress = agreement.getCurrentProgress();
+
+                if (currentProgress != null && currentProgress.contains("已完成")) {
+                    rowClass = "completed";
+                } else if (agreement.getAlertLevel() != null && agreement.getAlertLevel() <= 2) {
+                    rowClass = "urgent";
+                }
+
+                html.append("<tr class=\"").append(rowClass).append("\">");
+                html.append("<td>").append(agreement.getId() != null ? agreement.getId() : "").append("</td>");
+                html.append("<td>").append(agreement.getSystemName() != null ? agreement.getSystemName() : "").append("</td>");
+                html.append("<td>").append(agreement.getResponsiblePerson() != null ?
+                        agreement.getResponsiblePerson() : "").append("</td>");
+                html.append("<td>").append(currentProgress != null ? currentProgress : "").append("</td>");
+                html.append("<td>").append(formatDate(agreement.getPreviousAgreementExpiry())).append("</td>");
+                html.append("<td>").append(formatDate(agreement.getPlannedApprovalDate())).append("</td>");
+                html.append("<td class=\"level-").append(agreement.getAlertLevel() != null ?
+                        agreement.getAlertLevel() : 5).append("\">");
+                html.append(getUrgencyText(agreement.getAlertLevel())).append("</td>");
+                html.append("</tr>");
+            }
+
+            html.append("</table>");
+
+            // 统计信息
+            long completedCount = tableData.stream()
+                    .filter(a -> a.getCurrentProgress() != null && a.getCurrentProgress().contains("已完成"))
+                    .count();
+            long urgentCount = tableData.stream()
+                    .filter(a -> a.getAlertLevel() != null && a.getAlertLevel() <= 2)
+                    .count();
+
+            html.append("<div class=\"footer\">");
+            html.append("<p>📈 统计信息：总计 ").append(tableData.size()).append(" 项");
+            html.append(" | 已完成 ").append(completedCount).append(" 项");
+            html.append(" | 紧急待办 ").append(urgentCount).append(" 项</p>");
+            html.append("<p>📋 紧急程度说明：非常紧急(7天内) | 紧急(7-14天) | 中等(14-30天) | 一般(30-90天) | 较低(90天以上)</p>");
+            html.append("<p>✅ 绿色行：已完成项目 | 🔴 红色背景：紧急项目</p>");
+            html.append("</div>");
+        } else {
+            html.append("<div class=\"alert-section\">");
+            html.append("<div class=\"alert-title\">⚠️ 未找到相关记录</div>");
+            html.append("<div class=\"alert-content\">未找到'运营业务开发科'的相关项目记录。</div>");
+            html.append("</div>");
+        }
+
         html.append("</body>");
         html.append("</html>");
-        
+
         return html.toString();
     }
     
